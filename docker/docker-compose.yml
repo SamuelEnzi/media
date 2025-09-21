@@ -1,0 +1,358 @@
+version: '3.8'
+
+# =============================================================================
+# JELLYFIN MEDIA SERVER STACK
+# Configurable Docker Compose for complete media automation
+# 
+# Deployment Profiles:
+# - basic: Core media stack (Jellyfin + *arr apps + qBittorrent)
+# - vpn: Adds VPN-enabled qBittorrent for secure torrenting  
+# - optional: Additional services (FlareSolverr, Jackett, Watchtower)
+# - dev: Development tools and debugging
+#
+# Usage:
+# docker compose --profile basic up -d
+# docker compose --profile basic --profile vpn up -d
+# =============================================================================
+
+services:
+  # ==========================================================================
+  # JELLYFIN MEDIA SERVER (Core Service)
+  # ==========================================================================
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+      - JELLYFIN_PublishedServerUrl=${JELLYFIN_PUBLISHED_URL:-http://localhost:8096}
+    volumes:
+      - ${DATA_ROOT}/config/jellyfin:/config
+      - ${DATA_ROOT}/media/tv:/data/tvshows
+      - ${DATA_ROOT}/media/movies:/data/movies
+      - ${DATA_ROOT}/media/music:/data/music
+      # Optional: hardware transcoding cache on faster storage
+      # - /tmp/jellyfin-transcode:/transcode
+    ports:
+      - "${JELLYFIN_HTTP_PORT:-8096}:8096"
+      - "${JELLYFIN_HTTPS_PORT:-8920}:8920"
+      - "7359:7359/udp"  # Service discovery
+      - "1900:1900/udp"  # DLNA
+    devices:
+      # Intel Quick Sync Video
+      - /dev/dri:/dev/dri
+    restart: ${RESTART_POLICY:-unless-stopped}
+    networks:
+      - media-network
+    logging:
+      driver: ${LOG_DRIVER:-json-file}
+      options:
+        max-size: ${LOG_MAX_SIZE:-10m}
+        max-file: "${LOG_MAX_FILE:-3}"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8096/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==========================================================================
+  # QBITTORRENT - STANDARD (Basic Profile)
+  # ==========================================================================
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    profiles: [basic]
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+      - WEBUI_PORT=${QBITTORRENT_PORT:-8080}
+    volumes:
+      - ${DATA_ROOT}/config/qbittorrent:/config
+      - ${DATA_ROOT}/torrents:/data/torrents
+    ports:
+      - "${QBITTORRENT_PORT:-8080}:8080"
+      - "${QBITTORRENT_TORRENT_PORT:-6881}:6881"
+      - "${QBITTORRENT_TORRENT_PORT:-6881}:6881/udp"
+    restart: ${RESTART_POLICY:-unless-stopped}
+    networks:
+      - media-network
+    logging:
+      driver: ${LOG_DRIVER:-json-file}
+      options:
+        max-size: ${LOG_MAX_SIZE:-10m}
+        max-file: "${LOG_MAX_FILE:-3}"
+
+  # ==========================================================================
+  # QBITTORRENT - VPN ENABLED (VPN Profile) 
+  # ==========================================================================
+  qbittorrent-vpn:
+    image: ghcr.io/hotio/qbittorrent:latest
+    container_name: qbittorrent-vpn
+    profiles: [vpn]
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}  
+      - TZ=${TZ:-America/New_York}
+      - WEBUI_PORTS="${QBITTORRENT_PORT:-8080}/tcp,${QBITTORRENT_PORT:-8080}/udp"
+      - VPN_ENABLED=${VPN_ENABLED:-true}
+      - VPN_CONF=${VPN_CONF:-wg0}
+      - VPN_PROVIDER=${VPN_PROVIDER:-generic}
+      - VPN_LAN_NETWORK=${LAN_NETWORK:-192.168.1.0/24}
+      - VPN_AUTO_PORT_FORWARD=${VPN_AUTO_PORT_FORWARD:-false}
+      - VPN_FIREWALL_TYPE=${VPN_FIREWALL_TYPE:-auto}
+      - VPN_HEALTHCHECK_ENABLED=${VPN_HEALTHCHECK_ENABLED:-true}
+      - VPN_NAMESERVERS=${VPN_NAMESERVERS:-}
+    volumes:
+      - ${DATA_ROOT}/config/qbittorrent-vpn:/config
+      - ${DATA_ROOT}/torrents:/data/torrents
+    ports:
+      - "${QBITTORRENT_PORT:-8080}:8080"
+    cap_add:
+      - NET_ADMIN
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+      - net.ipv6.conf.all.disable_ipv6=1
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    restart: ${RESTART_POLICY:-unless-stopped}
+    networks:
+      - media-network
+    logging:
+      driver: ${LOG_DRIVER:-json-file}
+      options:
+        max-size: ${LOG_MAX_SIZE:-10m}
+        max-file: "${LOG_MAX_FILE:-3}"
+
+  # ==========================================================================
+  # SONARR - TV SHOW AUTOMATION
+  # ==========================================================================
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+    volumes:
+      - ${DATA_ROOT}/config/sonarr:/config
+      - ${DATA_ROOT}/media/tv:/tv
+      - ${DATA_ROOT}/torrents:/data/torrents
+    ports:
+      - "${SONARR_PORT:-8989}:8989"
+    restart: ${RESTART_POLICY:-unless-stopped}
+    networks:
+      - media-network
+    depends_on:
+      - prowlarr
+    logging:
+      driver: ${LOG_DRIVER:-json-file}
+      options:
+        max-size: ${LOG_MAX_SIZE:-10m}
+        max-file: "${LOG_MAX_FILE:-3}"
+
+  # ==========================================================================
+  # RADARR - MOVIE AUTOMATION  
+  # ==========================================================================
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+    volumes:
+      - ${DATA_ROOT}/config/radarr:/config
+      - ${DATA_ROOT}/media/movies:/movies
+      - ${DATA_ROOT}/torrents:/data/torrents
+    ports:
+      - "${RADARR_PORT:-7878}:7878"
+    restart: ${RESTART_POLICY:-unless-stopped}
+    networks:
+      - media-network
+    depends_on:
+      - prowlarr
+    logging:
+      driver: ${LOG_DRIVER:-json-file}
+      options:
+        max-size: ${LOG_MAX_SIZE:-10m}
+        max-file: "${LOG_MAX_FILE:-3}"
+
+  # ==========================================================================
+  # LIDARR - MUSIC AUTOMATION
+  # ==========================================================================
+  lidarr:
+    image: lscr.io/linuxserver/lidarr:latest
+    container_name: lidarr
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+    volumes:
+      - ${DATA_ROOT}/config/lidarr:/config
+      - ${DATA_ROOT}/media/music:/music
+      - ${DATA_ROOT}/torrents:/data/torrents
+    ports:
+      - "${LIDARR_PORT:-8686}:8686"
+    restart: ${RESTART_POLICY:-unless-stopped}
+    networks:
+      - media-network
+    depends_on:
+      - prowlarr
+    logging:
+      driver: ${LOG_DRIVER:-json-file}
+      options:
+        max-size: ${LOG_MAX_SIZE:-10m}
+        max-file: "${LOG_MAX_FILE:-3}"
+
+  # ==========================================================================
+  # PROWLARR - INDEXER MANAGER
+  # ==========================================================================
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+    volumes:
+      - ${DATA_ROOT}/config/prowlarr:/config
+    ports:
+      - "${PROWLARR_PORT:-9696}:9696"
+    restart: ${RESTART_POLICY:-unless-stopped}
+    networks:
+      - media-network
+    logging:
+      driver: ${LOG_DRIVER:-json-file}
+      options:
+        max-size: ${LOG_MAX_SIZE:-10m}
+        max-file: "${LOG_MAX_FILE:-3}"
+
+  # ==========================================================================
+  # OPTIONAL SERVICES
+  # ==========================================================================
+
+  # FlareSolverr - CloudFlare bypass for indexers
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    profiles: [optional]
+    environment:
+      - LOG_LEVEL=info
+      - LOG_HTML=false
+      - CAPTCHA_SOLVER=none
+      - TZ=${TZ:-America/New_York}
+    ports:
+      - "${FLARESOLVERR_PORT:-8191}:8191"
+    restart: ${RESTART_POLICY:-unless-stopped}
+    networks:
+      - media-network
+    logging:
+      driver: ${LOG_DRIVER:-json-file}
+      options:
+        max-size: ${LOG_MAX_SIZE:-10m}
+        max-file: "${LOG_MAX_FILE:-3}"
+
+  # Jackett - Alternative indexer manager  
+  jackett:
+    image: lscr.io/linuxserver/jackett:latest
+    container_name: jackett
+    profiles: [optional]
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+      - AUTO_UPDATE=true
+    volumes:
+      - ${DATA_ROOT}/config/jackett:/config
+      - ${DATA_ROOT}/torrents:/downloads
+    ports:
+      - "${JACKETT_PORT:-9117}:9117"
+    restart: ${RESTART_POLICY:-unless-stopped}
+    networks:
+      - media-network
+    logging:
+      driver: ${LOG_DRIVER:-json-file}
+      options:
+        max-size: ${LOG_MAX_SIZE:-10m}
+        max-file: "${LOG_MAX_FILE:-3}"
+
+  # Watchtower - Automatic container updates
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    profiles: [optional]
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_SCHEDULE=0 0 4 * * *  # 4 AM daily
+      - WATCHTOWER_INCLUDE_RESTARTING=true
+      - WATCHTOWER_NOTIFICATIONS_LEVEL=info
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: ${RESTART_POLICY:-unless-stopped}
+    networks:
+      - media-network
+    logging:
+      driver: ${LOG_DRIVER:-json-file}
+      options:
+        max-size: ${LOG_MAX_SIZE:-10m}
+        max-file: "${LOG_MAX_FILE:-3}"
+
+  # ==========================================================================
+  # DEVELOPMENT/DEBUG SERVICES  
+  # ==========================================================================
+
+  # Portainer - Docker management UI
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    profiles: [dev]
+    environment:
+      - TZ=${TZ:-America/New_York}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer-data:/data
+    ports:
+      - "9000:9000"
+    restart: ${RESTART_POLICY:-unless-stopped}
+    networks:
+      - media-network
+
+  # Netdata - System monitoring
+  netdata:
+    image: netdata/netdata:latest
+    container_name: netdata
+    profiles: [dev]
+    environment:
+      - TZ=${TZ:-America/New_York}
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "19999:19999"
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - apparmor:unconfined
+    restart: ${RESTART_POLICY:-unless-stopped}
+    networks:
+      - media-network
+
+# =============================================================================
+# NETWORKS & VOLUMES
+# =============================================================================
+
+networks:
+  media-network:
+    name: ${NETWORK_NAME:-media-network}
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  portainer-data:
+    name: portainer-data
