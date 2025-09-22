@@ -1,24 +1,16 @@
 #!/bin/bash
 
-# =============================================================================
-# Jellyfin Media Server - Setup Script
-# Automated setup for Docker deployment
-# =============================================================================
-
 set -euo pipefail
 
-# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="$SCRIPT_DIR/.env"
 
-# Default values
 DEFAULT_DATA_ROOT="/data"
 DEFAULT_USER_ID="$(id -u)"
 DEFAULT_GROUP_ID="$(id -g)"
@@ -52,28 +44,24 @@ print_error() {
 check_prerequisites() {
     print_step "Checking prerequisites..."
     
-    # Check if running as root
     if [[ $EUID -eq 0 ]]; then
         print_error "This script should not be run as root."
         print_info "Please run as a regular user who is in the docker group."
         exit 1
     fi
     
-    # Check Docker
     if ! command -v docker &> /dev/null; then
         print_error "Docker is not installed."
         print_info "Please install Docker first: https://docs.docker.com/engine/install/"
         exit 1
     fi
     
-    # Check Docker Compose
     if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
         print_error "Docker Compose is not installed."
         print_info "Please install Docker Compose: https://docs.docker.com/compose/install/"
         exit 1
     fi
     
-    # Check Docker daemon
     if ! docker info &> /dev/null; then
         print_error "Docker daemon is not running or accessible."
         print_info "Make sure Docker is running and your user is in the docker group:"
@@ -87,12 +75,10 @@ check_prerequisites() {
 get_user_input() {
     print_step "Gathering configuration information..."
     
-    # Data directory
     echo -n "Enter data directory path [$DEFAULT_DATA_ROOT]: "
     read -r DATA_ROOT
     DATA_ROOT=${DATA_ROOT:-$DEFAULT_DATA_ROOT}
     
-    # User/Group IDs
     echo -n "Enter PUID [$DEFAULT_USER_ID]: "
     read -r PUID
     PUID=${PUID:-$DEFAULT_USER_ID}
@@ -101,24 +87,20 @@ get_user_input() {
     read -r PGID  
     PGID=${PGID:-$DEFAULT_GROUP_ID}
     
-    # Timezone
     echo -n "Enter timezone [$DEFAULT_TIMEZONE]: "
     read -r TIMEZONE
     TIMEZONE=${TIMEZONE:-$DEFAULT_TIMEZONE}
     
-    # Network detection
     DEFAULT_NETWORK=$(ip route | grep -E "192\.168\.|10\.|172\." | head -1 | awk '{print $1}' | head -1 || echo "192.168.1.0/24")
     echo -n "Enter LAN network [$DEFAULT_NETWORK]: "
     read -r LAN_NETWORK
     LAN_NETWORK=${LAN_NETWORK:-$DEFAULT_NETWORK}
     
-    # Server IP detection
     DEFAULT_IP=$(ip route get 8.8.8.8 | awk '{print $7; exit}' 2>/dev/null || echo "localhost")
     echo -n "Enter server IP for Jellyfin [$DEFAULT_IP]: "
     read -r SERVER_IP
     SERVER_IP=${SERVER_IP:-$DEFAULT_IP}
     
-    # Deployment profile
     echo ""
     echo "Select deployment profile:"
     echo "1) Basic (Core services only)"
@@ -136,7 +118,6 @@ get_user_input() {
         *) COMPOSE_PROFILES="basic" ;;
     esac
     
-    # VPN configuration if needed
     if [[ $COMPOSE_PROFILES == *"vpn"* ]]; then
         echo ""
         print_info "VPN profile selected. Additional VPN configuration required."
@@ -153,16 +134,9 @@ get_user_input() {
 
 create_directories() {
     print_step "Creating directory structure..."
-    
-    # Create main directories
     sudo mkdir -p "$DATA_ROOT"/{config/{jellyfin,sonarr,radarr,lidarr,prowlarr,qbittorrent,qbittorrent-vpn,jackett},media/{movies,tv,music},torrents/{movies,tv,music,completed,incomplete}}
-    
-    # Set ownership
     sudo chown -R "$PUID:$PGID" "$DATA_ROOT"
-    
-    # Set permissions
     chmod -R 755 "$DATA_ROOT"
-    
     print_info "✓ Directory structure created: $DATA_ROOT"
 }
 
@@ -260,7 +234,6 @@ deploy_services() {
     
     cd "$SCRIPT_DIR"
     
-    # Pull images
     print_info "Pulling Docker images..."
     if command -v docker-compose &> /dev/null; then
         docker-compose pull
@@ -268,7 +241,6 @@ deploy_services() {
         docker compose pull
     fi
     
-    # Start services
     print_info "Starting services with profile: $COMPOSE_PROFILES"
     if command -v docker-compose &> /dev/null; then
         COMPOSE_PROFILES="$COMPOSE_PROFILES" docker-compose up -d
@@ -350,8 +322,5 @@ main() {
     print_info "Setup complete! Your media server is ready to use."
 }
 
-# Handle script interruption
 trap 'echo -e "\n${RED}Setup interrupted!${NC}"; exit 1' INT TERM
-
-# Run main function
 main "$@"
