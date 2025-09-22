@@ -1,5 +1,3 @@
-version: '3.8'
-
 # =============================================================================
 # JELLYFIN MEDIA SERVER STACK
 # Configurable Docker Compose for complete media automation
