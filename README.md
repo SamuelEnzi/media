@@ -14,7 +14,24 @@ Collect this information:
 - Group ID: `id -g`  
 - Timezone (e.g., America/New_York)
 - Server IP address
-- VPN WireGuard config (optional)
+- TorGuard VPN config (optional)
+
+## VPN Configuration (Optional)
+
+For secure torrenting with TorGuard:
+
+1. **Get TorGuard Config:**
+   - Visit [torguard.net/config-generator](https://torguard.net/config-generator)
+   - Select **WireGuard** protocol
+   - Choose your preferred server location
+   - Download the configuration file
+
+2. **Store Config File:**
+   ```bash
+   sudo mkdir -p /data/config/qbittorrent/wireguard
+   sudo cp ~/Downloads/TorGuard.conf /data/config/qbittorrent/wireguard/wg0.conf
+   sudo chown $(id -u):$(id -g) /data/config/qbittorrent/wireguard/wg0.conf
+   ```
 
 ## Volume Setup
 

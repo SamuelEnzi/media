@@ -121,14 +121,14 @@ get_user_input() {
     if [[ $COMPOSE_PROFILES == *"vpn"* ]]; then
         echo ""
         print_info "VPN profile selected. Additional VPN configuration required."
-        echo -n "VPN provider (generic/proton/pia) [generic]: "
+        echo -n "VPN provider (torguard/proton/pia/generic) [torguard]: "
         read -r VPN_PROVIDER
-        VPN_PROVIDER=${VPN_PROVIDER:-generic}
+        VPN_PROVIDER=${VPN_PROVIDER:-torguard}
         
         VPN_ENABLED="true"
     else
         VPN_ENABLED="false"
-        VPN_PROVIDER="generic"
+        VPN_PROVIDER="torguard"
     fi
 }
 
@@ -163,7 +163,7 @@ COMPOSE_PROFILES=$COMPOSE_PROFILES
 VPN_ENABLED=$VPN_ENABLED
 VPN_PROVIDER=$VPN_PROVIDER
 VPN_CONF=wg0
-VPN_AUTO_PORT_FORWARD=false
+VPN_AUTO_PORT_FORWARD=true
 VPN_FIREWALL_TYPE=auto
 VPN_HEALTHCHECK_ENABLED=true
 VPN_NAMESERVERS=1.1.1.1,8.8.8.8
@@ -203,26 +203,24 @@ setup_vpn_config() {
         VPN_CONFIG_DIR="$DATA_ROOT/config/qbittorrent-vpn/wireguard"
         mkdir -p "$VPN_CONFIG_DIR"
         
-        print_warning "VPN configuration required!"
-        print_info "Please place your WireGuard configuration file at:"
+        print_warning "TorGuard WireGuard configuration required!"
+        print_info "Please place your TorGuard WireGuard configuration file at:"
         print_info "  $VPN_CONFIG_DIR/wg0.conf"
         echo ""
-        print_info "Example WireGuard config:"
-        echo "  [Interface]"
-        echo "  PrivateKey = your-private-key-here"
-        echo "  Address = 10.x.x.x/32"
-        echo "  DNS = 1.1.1.1"
-        echo ""  
-        echo "  [Peer]"
-        echo "  PublicKey = vpn-server-public-key"
-        echo "  AllowedIPs = 0.0.0.0/0"
-        echo "  Endpoint = vpn.example.com:51820"
+        print_info "Get your TorGuard WireGuard config:"
+        echo "  1. Login to https://torguard.net/config-generator"
+        echo "  2. Select 'WireGuard' protocol"
+        echo "  3. Choose your server location"
+        echo "  4. Download the .conf file"
+        echo "  5. Copy it to: $VPN_CONFIG_DIR/wg0.conf"
+        echo ""
+        print_info "TorGuard supports port forwarding for optimal BitTorrent performance"
         echo ""
         
-        read -p "Press Enter when you have placed the WireGuard config file..."
+        read -p "Press Enter when you have placed the TorGuard WireGuard config file..."
         
         if [[ ! -f "$VPN_CONFIG_DIR/wg0.conf" ]]; then
-            print_warning "WireGuard config not found. You can add it later."
+            print_warning "TorGuard WireGuard config not found. You can add it later."
         else
             print_info "✓ VPN configuration found"
         fi
