@@ -102,6 +102,16 @@ get_user_input() {
     SERVER_IP=${SERVER_IP:-$DEFAULT_IP}
     
     echo ""
+    echo -n "qBittorrent username [admin]: "
+    read -r QBITTORRENT_USERNAME
+    QBITTORRENT_USERNAME=${QBITTORRENT_USERNAME:-admin}
+    
+    echo -n "qBittorrent password [adminadmin]: "
+    read -s QBITTORRENT_PASSWORD
+    QBITTORRENT_PASSWORD=${QBITTORRENT_PASSWORD:-adminadmin}
+    echo  # New line after hidden password input
+    
+    echo ""
     echo "Select deployment profile:"
     echo "1) Basic (Core services only)"
     echo "2) Basic + VPN (Secure torrenting)"  
@@ -177,6 +187,8 @@ LIDARR_PORT=8686
 PROWLARR_PORT=9696
 QBITTORRENT_PORT=8080
 QBITTORRENT_TORRENT_PORT=6881
+QBITTORRENT_USERNAME=$QBITTORRENT_USERNAME
+QBITTORRENT_PASSWORD=$QBITTORRENT_PASSWORD
 JACKETT_PORT=9117
 FLARESOLVERR_PORT=8191
 
