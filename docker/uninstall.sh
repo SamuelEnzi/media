@@ -55,17 +55,10 @@ confirm_uninstall() {
     echo "This action is IRREVERSIBLE! All your media and configurations will be lost!"
     echo ""
     
-    read -p "Are you absolutely sure you want to proceed? Type 'DELETE EVERYTHING' to confirm: " confirmation
+    read -p "Do you want to proceed? [Y/n]: " confirmation
+    confirmation=${confirmation:-Y}
     
-    if [[ "$confirmation" != "DELETE EVERYTHING" ]]; then
-        echo "Uninstall cancelled. No changes were made."
-        exit 0
-    fi
-    
-    echo ""
-    read -p "Last chance! Type 'YES I AM SURE' to proceed with deletion: " final_confirmation
-    
-    if [[ "$final_confirmation" != "YES I AM SURE" ]]; then
+    if [[ "$confirmation" != "Y" && "$confirmation" != "y" ]]; then
         echo "Uninstall cancelled. No changes were made."
         exit 0
     fi
