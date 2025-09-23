@@ -76,3 +76,4 @@ Forward these ports (TCP):
 - 7878 - Radarr  
 - 8686 - Lidarr
 - 9696 - Prowlarr
+- 5055 - Jellyseerr

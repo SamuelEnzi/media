@@ -144,7 +144,7 @@ get_user_input() {
 
 create_directories() {
     print_step "Creating directory structure..."
-    sudo mkdir -p "$DATA_ROOT"/{config/{jellyfin,sonarr,radarr,lidarr,prowlarr,qbittorrent,qbittorrent-vpn,jackett},media/{movies,tv,music},torrents/{movies,tv,music,completed,incomplete}}
+    sudo mkdir -p "$DATA_ROOT"/{config/{jellyfin,sonarr,radarr,lidarr,prowlarr,jellyseerr,qbittorrent,qbittorrent-vpn,jackett},media/{movies,tv,music},torrents/{movies,tv,music,completed,incomplete}}
     sudo chown -R "$PUID:$PGID" "$DATA_ROOT"
     chmod -R 755 "$DATA_ROOT"
     print_info "✓ Directory structure created: $DATA_ROOT"
@@ -185,6 +185,7 @@ SONARR_PORT=8989
 RADARR_PORT=7878
 LIDARR_PORT=8686
 PROWLARR_PORT=9696
+JELLYSEERR_PORT=5055
 QBITTORRENT_PORT=8080
 QBITTORRENT_TORRENT_PORT=6881
 QBITTORRENT_USERNAME=$QBITTORRENT_USERNAME
@@ -274,6 +275,7 @@ show_access_info() {
     echo "│  Radarr      │  http://$SERVER_IP:7878        │"
     echo "│  Lidarr      │  http://$SERVER_IP:8686        │"
     echo "│  Prowlarr    │  http://$SERVER_IP:9696        │"
+    echo "│  Jellyseerr  │  http://$SERVER_IP:5055        │"
     echo "│  qBittorrent │  http://$SERVER_IP:8080        │"
     
     if [[ $COMPOSE_PROFILES == *"optional"* ]]; then
