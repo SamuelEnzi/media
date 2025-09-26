@@ -51,7 +51,7 @@ Mount points:
 
 Run interactive setup:
 ```bash
-cd docker && ./setup.sh
+bash ./setup.sh
 ```
 
 Or deploy manually:
