@@ -101,15 +101,7 @@ get_user_input() {
     read -r SERVER_IP
     SERVER_IP=${SERVER_IP:-$DEFAULT_IP}
     
-    echo ""
-    echo -n "qBittorrent username [admin]: "
-    read -r QBITTORRENT_USERNAME
-    QBITTORRENT_USERNAME=${QBITTORRENT_USERNAME:-admin}
-    
-    echo -n "qBittorrent password [adminadmin]: "
-    read -s QBITTORRENT_PASSWORD
-    QBITTORRENT_PASSWORD=${QBITTORRENT_PASSWORD:-adminadmin}
-    echo  # New line after hidden password input
+
     
     echo ""
     echo "Select deployment profile:"
@@ -188,8 +180,6 @@ PROWLARR_PORT=9696
 JELLYSEERR_PORT=5055
 QBITTORRENT_PORT=8080
 QBITTORRENT_TORRENT_PORT=6881
-QBITTORRENT_USERNAME=$QBITTORRENT_USERNAME
-QBITTORRENT_PASSWORD=$QBITTORRENT_PASSWORD
 JACKETT_PORT=9117
 FLARESOLVERR_PORT=8191
 
@@ -286,8 +276,13 @@ show_access_info() {
     echo "└─────────────────────────────────────────────────┘"
     echo ""
     
-    print_info "Default qBittorrent credentials: admin / adminadmin"
-    print_warning "Please change the qBittorrent password immediately!"
+    print_info "Default qBittorrent login: admin"
+    print_warning "qBittorrent generates a temporary password on first start"
+    print_info "To get the temporary password, run:"
+    echo "  docker compose logs qbittorrent"
+    echo "  # OR for VPN version:"
+    echo "  docker compose logs qbittorrent-vpn"
+    print_warning "You MUST change this password through the WebUI after first login!"
     
     if [[ $VPN_ENABLED == "true" ]]; then
         echo ""
@@ -298,9 +293,14 @@ show_access_info() {
     echo ""
     print_info "Next steps:"
     echo "  1. Setup Jellyfin at http://$SERVER_IP:8096"
-    echo "  2. Configure qBittorrent and change password"
-    echo "  3. Setup indexers in Prowlarr"
-    echo "  4. Configure Sonarr, Radarr, and Lidarr"
+    echo "  2. Get qBittorrent temporary password:"
+    echo "     docker compose logs qbittorrent"
+    echo "  3. Login to qBittorrent and change password through WebUI"
+    echo "  4. Setup indexers in Prowlarr"
+    echo "  5. Configure Sonarr, Radarr, and Lidarr"
+    echo ""
+    print_warning "IMPORTANT: qBittorrent credentials cannot be pre-configured!"
+    print_info "You must check the container logs for the temporary password."
     echo ""
     print_info "For detailed setup instructions, see README.md"
 }
@@ -313,6 +313,10 @@ show_management_commands() {
     echo "  Restart service:  docker compose restart [service]"
     echo "  Update services:  docker compose pull && docker compose up -d"
     echo "  Check status:     docker compose ps"
+    echo ""
+    echo -e "${YELLOW}qBittorrent Specific:${NC}"
+    echo "  Get temp password: docker compose logs qbittorrent"
+    echo "  Get VPN password:  docker compose logs qbittorrent-vpn"
     echo ""
 }
 
