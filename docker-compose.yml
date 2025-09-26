@@ -83,40 +83,75 @@ services:
         max-file: "${LOG_MAX_FILE:-3}"
 
   # ==========================================================================
+  # GLUETUN VPN CLIENT (VPN Profile) 
+  # ==========================================================================
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun
+    profiles: [vpn]
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      - VPN_SERVICE_PROVIDER=mullvad
+      - VPN_TYPE=${VPN_TYPE:-wireguard}
+      # Wireguard settings for Mullvad
+      - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY:-}
+      - WIREGUARD_ADDRESSES=${WIREGUARD_ADDRESSES:-}
+      # Server filtering (optional)
+      - SERVER_COUNTRIES=${SERVER_COUNTRIES:-}
+      - SERVER_CITIES=${SERVER_CITIES:-}
+      # Network settings
+      - FIREWALL_OUTBOUND_SUBNETS=${LAN_NETWORK:-192.168.1.0/24}
+      - DOT=${DOT:-on}
+      - DOT_PROVIDERS=${DOT_PROVIDERS:-cloudflare}
+      - TZ=${TZ:-America/New_York}
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+    volumes:
+      - ${DATA_ROOT}/config/gluetun:/gluetun
+    ports:
+      - "${QBITTORRENT_PORT:-8080}:8080"    # qBittorrent WebUI
+      - "8888:8888/tcp"                     # HTTP proxy
+      - "8388:8388/tcp"                     # Shadowsocks
+      - "8388:8388/udp"                     # Shadowsocks UDP  
+    restart: ${RESTART_POLICY:-unless-stopped}
+    networks:
+      media-network:
+        aliases:
+          - qbittorrent-vpn  # Allow other services to reach qBittorrent via this name
+    logging:
+      driver: ${LOG_DRIVER:-json-file}
+      options:
+        max-size: ${LOG_MAX_SIZE:-10m}
+        max-file: "${LOG_MAX_FILE:-3}"
+    healthcheck:
+      test: ["CMD", "/gluetun-entrypoint", "healthcheck"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ==========================================================================
   # QBITTORRENT - VPN ENABLED (VPN Profile) 
   # ==========================================================================
   qbittorrent-vpn:
-    image: ghcr.io/hotio/qbittorrent:latest
+    image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent-vpn
     profiles: [vpn]
+    network_mode: "service:gluetun"
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}  
       - TZ=${TZ:-America/New_York}
-      - WEBUI_PORTS="${QBITTORRENT_PORT:-8080}/tcp,${QBITTORRENT_PORT:-8080}/udp"
-      - VPN_ENABLED=${VPN_ENABLED:-true}
-      - VPN_CONF=${VPN_CONF:-wg0}
-      - VPN_PROVIDER=${VPN_PROVIDER:-torguard}
-      - VPN_LAN_NETWORK=${LAN_NETWORK:-192.168.1.0/24}
-      - VPN_AUTO_PORT_FORWARD=${VPN_AUTO_PORT_FORWARD:-true}
-      - VPN_FIREWALL_TYPE=${VPN_FIREWALL_TYPE:-auto}
-      - VPN_HEALTHCHECK_ENABLED=${VPN_HEALTHCHECK_ENABLED:-true}
-      - VPN_NAMESERVERS=${VPN_NAMESERVERS:-}
+      - WEBUI_PORT=${QBITTORRENT_PORT:-8080}
     volumes:
       - ${DATA_ROOT}/config/qbittorrent-vpn:/config
       - ${DATA_ROOT}/torrents:/data/torrents
-    ports:
-      - "${QBITTORRENT_PORT:-8080}:8080"
-    cap_add:
-      - NET_ADMIN
-    sysctls:
-      - net.ipv4.conf.all.src_valid_mark=1
-      - net.ipv6.conf.all.disable_ipv6=1
-    devices:
-      - /dev/net/tun:/dev/net/tun
+    depends_on:
+      - gluetun
     restart: ${RESTART_POLICY:-unless-stopped}
-    networks:
-      - media-network
     logging:
       driver: ${LOG_DRIVER:-json-file}
       options:

@@ -101,12 +101,10 @@ get_user_input() {
     read -r SERVER_IP
     SERVER_IP=${SERVER_IP:-$DEFAULT_IP}
     
-
-    
     echo ""
     echo "Select deployment profile:"
     echo "1) Basic (Core services only)"
-    echo "2) Basic + VPN (Secure torrenting)"  
+    echo "2) Basic + VPN (Secure torrenting with Mullvad)"  
     echo "3) Basic + Optional (Additional services)"
     echo "4) Full (Basic + VPN + Optional)"
     echo -n "Enter choice [1-4]: "
@@ -122,21 +120,33 @@ get_user_input() {
     
     if [[ $COMPOSE_PROFILES == *"vpn"* ]]; then
         echo ""
-        print_info "VPN profile selected. Additional VPN configuration required."
-        echo -n "VPN provider (torguard/proton/pia/generic) [torguard]: "
-        read -r VPN_PROVIDER
-        VPN_PROVIDER=${VPN_PROVIDER:-torguard}
+        print_info "VPN profile selected. Mullvad Wireguard configuration required."
+        print_warning "You need to get your Wireguard config from: https://mullvad.net/account/wireguard-config/"
+        echo ""
+        echo -n "Enter Mullvad Wireguard private key: "
+        read -r WIREGUARD_PRIVATE_KEY
+        echo -n "Enter Wireguard addresses (e.g., 10.64.222.21/32): "
+        read -r WIREGUARD_ADDRESSES
+        
+        echo ""
+        echo -n "Enter preferred countries (comma-separated, or leave empty): "
+        read -r SERVER_COUNTRIES
+        echo -n "Enter preferred cities (comma-separated, or leave empty): "
+        read -r SERVER_CITIES
         
         VPN_ENABLED="true"
     else
         VPN_ENABLED="false"
-        VPN_PROVIDER="torguard"
+        WIREGUARD_PRIVATE_KEY=""
+        WIREGUARD_ADDRESSES=""
+        SERVER_COUNTRIES=""
+        SERVER_CITIES=""
     fi
 }
 
 create_directories() {
     print_step "Creating directory structure..."
-    sudo mkdir -p "$DATA_ROOT"/{config/{jellyfin,sonarr,radarr,lidarr,prowlarr,jellyseerr,qbittorrent,qbittorrent-vpn,jackett},media/{movies,tv,music},torrents/{movies,tv,music,completed,incomplete}}
+    sudo mkdir -p "$DATA_ROOT"/{config/{jellyfin,sonarr,radarr,lidarr,prowlarr,jellyseerr,qbittorrent,qbittorrent-vpn,gluetun,jackett},media/{movies,tv,music},torrents/{movies,tv,music,completed,incomplete}}
     sudo chown -R "$PUID:$PGID" "$DATA_ROOT"
     chmod -R 755 "$DATA_ROOT"
     print_info "✓ Directory structure created: $DATA_ROOT"
@@ -161,14 +171,14 @@ JELLYFIN_PUBLISHED_URL=http://$SERVER_IP:8096
 # Deployment Profile
 COMPOSE_PROFILES=$COMPOSE_PROFILES
 
-# VPN Configuration
-VPN_ENABLED=$VPN_ENABLED
-VPN_PROVIDER=$VPN_PROVIDER
-VPN_CONF=wg0
-VPN_AUTO_PORT_FORWARD=true
-VPN_FIREWALL_TYPE=auto
-VPN_HEALTHCHECK_ENABLED=true
-VPN_NAMESERVERS=1.1.1.1,8.8.8.8
+# Gluetun + Mullvad VPN Configuration
+VPN_TYPE=wireguard
+WIREGUARD_PRIVATE_KEY=$WIREGUARD_PRIVATE_KEY
+WIREGUARD_ADDRESSES=$WIREGUARD_ADDRESSES
+SERVER_COUNTRIES=$SERVER_COUNTRIES
+SERVER_CITIES=$SERVER_CITIES
+DOT=on
+DOT_PROVIDERS=cloudflare
 
 # Port Configuration (default values)
 JELLYFIN_HTTP_PORT=8096
@@ -201,31 +211,25 @@ EOF
 
 setup_vpn_config() {
     if [[ $VPN_ENABLED == "true" ]]; then
-        print_step "Setting up VPN configuration..."
+        print_step "Setting up Mullvad VPN configuration..."
         
-        VPN_CONFIG_DIR="$DATA_ROOT/config/qbittorrent-vpn/wireguard"
+        VPN_CONFIG_DIR="$DATA_ROOT/config/gluetun"
         mkdir -p "$VPN_CONFIG_DIR"
         
-        print_warning "TorGuard WireGuard configuration required!"
-        print_info "Please place your TorGuard WireGuard configuration file at:"
-        print_info "  $VPN_CONFIG_DIR/wg0.conf"
+        print_warning "Mullvad Wireguard configuration required!"
+        print_info "To get your Mullvad Wireguard configuration:"
+        echo "  1. Login to https://mullvad.net/account/"
+        echo "  2. Go to 'WireGuard configuration'"
+        echo "  3. Generate a key pair if you haven't already"
+        echo "  4. Copy your private key and address"
         echo ""
-        print_info "Get your TorGuard WireGuard config:"
-        echo "  1. Login to https://torguard.net/config-generator"
-        echo "  2. Select 'WireGuard' protocol"
-        echo "  3. Choose your server location"
-        echo "  4. Download the .conf file"
-        echo "  5. Copy it to: $VPN_CONFIG_DIR/wg0.conf"
-        echo ""
-        print_info "TorGuard supports port forwarding for optimal BitTorrent performance"
+        print_info "Mullvad supports automatic port forwarding and has excellent privacy features"
         echo ""
         
-        read -p "Press Enter when you have placed the TorGuard WireGuard config file..."
-        
-        if [[ ! -f "$VPN_CONFIG_DIR/wg0.conf" ]]; then
-            print_warning "TorGuard WireGuard config not found. You can add it later."
+        if [[ -z "$WIREGUARD_PRIVATE_KEY" ]]; then
+            print_warning "Wireguard private key not provided. You can add it later to the .env file."
         else
-            print_info "✓ VPN configuration found"
+            print_info "✓ Wireguard configuration will be set via environment variables"
         fi
     fi
 }
@@ -286,8 +290,9 @@ show_access_info() {
     
     if [[ $VPN_ENABLED == "true" ]]; then
         echo ""
-        print_warning "VPN is enabled for torrenting."
-        print_info "Verify VPN connectivity: docker compose exec qbittorrent-vpn curl ifconfig.me"
+        print_warning "Gluetun VPN is enabled for secure torrenting with Mullvad."
+        print_info "Verify VPN connectivity: docker compose exec gluetun curl ifconfig.me"
+        print_info "Check Gluetun status: docker compose logs gluetun"
     fi
     
     echo ""
@@ -317,6 +322,11 @@ show_management_commands() {
     echo -e "${YELLOW}qBittorrent Specific:${NC}"
     echo "  Get temp password: docker compose logs qbittorrent"
     echo "  Get VPN password:  docker compose logs qbittorrent-vpn"
+    echo ""
+    echo -e "${YELLOW}Gluetun VPN Commands:${NC}"
+    echo "  Check VPN status:  docker compose logs gluetun"
+    echo "  Test VPN IP:       docker compose exec gluetun curl ifconfig.me"
+    echo "  Check connection:  docker compose exec gluetun curl -m 5 ipinfo.io"
     echo ""
 }
 
