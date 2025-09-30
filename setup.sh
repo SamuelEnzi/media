@@ -147,8 +147,16 @@ get_user_input() {
 create_directories() {
     print_step "Creating directory structure..."
     sudo mkdir -p "$DATA_ROOT"/{config/{jellyfin,sonarr,radarr,lidarr,prowlarr,jellyseerr,qbittorrent,qbittorrent-vpn,gluetun,jackett},media/{movies,tv,music},torrents/{movies,tv,music,completed,incomplete}}
-    sudo chown -R "$PUID:$PGID" "$DATA_ROOT"
-    chmod -R 755 "$DATA_ROOT"
+    
+    # Fix ownership and permissions, handling lost+found gracefully
+    print_info "Setting ownership and permissions..."
+    sudo find "$DATA_ROOT" -not -path "$DATA_ROOT/lost+found" -exec chown "$PUID:$PGID" {} \; 2>/dev/null || true
+    sudo find "$DATA_ROOT" -not -path "$DATA_ROOT/lost+found" -type d -exec chmod 755 {} \; 2>/dev/null || true
+    sudo find "$DATA_ROOT" -not -path "$DATA_ROOT/lost+found" -type f -exec chmod 644 {} \; 2>/dev/null || true
+    
+    # Set very permissive permissions for Docker compatibility
+    sudo chmod -R 777 "$DATA_ROOT"/{config,media,torrents} 2>/dev/null || true
+    
     print_info "✓ Directory structure created: $DATA_ROOT"
 }
 
