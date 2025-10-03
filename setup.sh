@@ -198,6 +198,8 @@ PROWLARR_PORT=9696
 JELLYSEERR_PORT=5055
 QBITTORRENT_PORT=8080
 QBITTORRENT_TORRENT_PORT=6881
+GLUETUN_HTTP_PROXY_PORT=8888
+GLUETUN_SHADOWSOCKS_PORT=8388
 JACKETT_PORT=9117
 FLARESOLVERR_PORT=8191
 
@@ -278,7 +280,14 @@ show_access_info() {
     echo "│  Lidarr      │  http://$SERVER_IP:8686        │"
     echo "│  Prowlarr    │  http://$SERVER_IP:9696        │"
     echo "│  Jellyseerr  │  http://$SERVER_IP:5055        │"
-    echo "│  qBittorrent │  http://$SERVER_IP:8080        │"
+    
+    if [[ $COMPOSE_PROFILES == *"vpn"* ]]; then
+        echo "│  qBittorrent │  http://$SERVER_IP:8080 (VPN)  │"
+        echo "│  Gluetun     │  HTTP Proxy: $SERVER_IP:8888   │"
+        echo "│              │  Shadowsocks: $SERVER_IP:8388  │"
+    else
+        echo "│  qBittorrent │  http://$SERVER_IP:8080        │"
+    fi
     
     if [[ $COMPOSE_PROFILES == *"optional"* ]]; then
         echo "│  Jackett     │  http://$SERVER_IP:9117        │"
@@ -290,10 +299,16 @@ show_access_info() {
     
     print_info "Default qBittorrent login: admin"
     print_warning "qBittorrent generates a temporary password on first start"
-    print_info "To get the temporary password, run:"
-    echo "  docker compose logs qbittorrent"
-    echo "  # OR for VPN version:"
-    echo "  docker compose logs qbittorrent-vpn"
+    
+    if [[ $COMPOSE_PROFILES == *"vpn"* ]]; then
+        print_info "To get the qBittorrent (VPN) temporary password, run:"
+        echo "  docker compose logs qbittorrent-vpn"
+        print_warning "Note: qBittorrent-VPN runs through Gluetun for secure torrenting"
+    else
+        print_info "To get the qBittorrent temporary password, run:"
+        echo "  docker compose logs qbittorrent"
+    fi
+    
     print_warning "You MUST change this password through the WebUI after first login!"
     
     if [[ $VPN_ENABLED == "true" ]]; then
@@ -329,12 +344,16 @@ show_management_commands() {
     echo ""
     echo -e "${YELLOW}qBittorrent Specific:${NC}"
     echo "  Get temp password: docker compose logs qbittorrent"
-    echo "  Get VPN password:  docker compose logs qbittorrent-vpn"
-    echo ""
-    echo -e "${YELLOW}Gluetun VPN Commands:${NC}"
-    echo "  Check VPN status:  docker compose logs gluetun"
-    echo "  Test VPN IP:       docker compose exec gluetun curl ifconfig.me"
-    echo "  Check connection:  docker compose exec gluetun curl -m 5 ipinfo.io"
+    if [[ $COMPOSE_PROFILES == *"vpn"* ]]; then
+        echo "  Get VPN password:  docker compose logs qbittorrent-vpn"
+        echo ""
+        echo -e "${YELLOW}Gluetun VPN Commands:${NC}"
+        echo "  Check VPN status:  docker compose logs gluetun"
+        echo "  Test VPN IP:       docker compose exec gluetun curl ifconfig.me"
+        echo "  Check connection:  docker compose exec gluetun curl -m 5 ipinfo.io"
+        echo "  HTTP Proxy:        Use $SERVER_IP:8888 for HTTP proxy"
+        echo "  Shadowsocks:       Use $SERVER_IP:8388 for Shadowsocks proxy"
+    fi
     echo ""
 }
 
