@@ -86,6 +86,7 @@ stop_all_containers() {
         "jellyseerr"
         "qbittorrent"
         "qbittorrent-vpn"
+        "gluetun"
         "jackett"
         "flaresolverr"
         "watchtower"
@@ -95,10 +96,15 @@ stop_all_containers() {
     
     for container in "${containers[@]}"; do
         if docker ps -aq -f name="^${container}$" | grep -q .; then
+            print_info "Removing container: $container"
             docker stop "$container" 2>/dev/null || true
             docker rm -f "$container" 2>/dev/null || true
         fi
     done
+    
+    # Also remove any containers that might have media-related names
+    print_info "Checking for any remaining media server containers..."
+    docker ps -aq --filter "name=media" --filter "name=arr" --filter "name=torrent" | xargs -r docker rm -f 2>/dev/null || true
 }
 
 remove_docker_images() {
@@ -112,6 +118,7 @@ remove_docker_images() {
         "lscr.io/linuxserver/prowlarr"
         "fallenbagel/jellyseerr"
         "lscr.io/linuxserver/qbittorrent"
+        "qmcgaw/gluetun"
         "ghcr.io/hotio/qbittorrent"
         "lscr.io/linuxserver/jackett"
         "ghcr.io/flaresolverr/flaresolverr"
@@ -151,13 +158,26 @@ remove_data_directories() {
     print_step "Removing data directories and files..."
     
     if [[ -d "$DATA_ROOT" ]]; then
-        sudo rm -rf "$DATA_ROOT" 2>/dev/null || {
-            rm -rf "$DATA_ROOT" 2>/dev/null || echo "Could not remove $DATA_ROOT. Manual cleanup may be required."
-        }
+        print_warning "Deleting data directory: $DATA_ROOT"
+        print_info "This includes all media files, configurations, and downloads!"
         
-        if [[ -d "$DATA_ROOT" ]]; then
-            echo "Data directory still exists. Manual cleanup required: $DATA_ROOT"
+        # Try to remove with sudo first, then without
+        if sudo rm -rf "$DATA_ROOT" 2>/dev/null; then
+            print_info "✓ Data directory removed successfully"
+        elif rm -rf "$DATA_ROOT" 2>/dev/null; then
+            print_info "✓ Data directory removed successfully"  
+        else
+            print_error "Could not remove $DATA_ROOT. Manual cleanup required."
+            print_info "Try running: sudo rm -rf $DATA_ROOT"
         fi
+        
+        # Double check removal
+        if [[ -d "$DATA_ROOT" ]]; then
+            print_warning "Data directory still exists: $DATA_ROOT"
+            print_info "Manual cleanup required. Run: sudo rm -rf $DATA_ROOT"
+        fi
+    else
+        print_info "Data directory not found or already removed: $DATA_ROOT"
     fi
 }
 
@@ -176,7 +196,24 @@ remove_config_files() {
 cleanup_docker_system() {
     print_step "Cleaning up Docker system..."
     
-    # Remove all unused containers, networks, images, and volumes
+    # Remove all unused containers
+    print_info "Removing unused containers..."
+    docker container prune -f 2>/dev/null || true
+    
+    # Remove all unused networks  
+    print_info "Removing unused networks..."
+    docker network prune -f 2>/dev/null || true
+    
+    # Remove all unused volumes
+    print_info "Removing unused volumes..."
+    docker volume prune -f 2>/dev/null || true
+    
+    # Remove all unused images
+    print_info "Removing unused images..."
+    docker image prune -af 2>/dev/null || true
+    
+    # Final system cleanup
+    print_info "Final Docker system cleanup..."
     docker system prune -af --volumes 2>/dev/null || true
 }
 

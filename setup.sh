@@ -91,7 +91,23 @@ get_user_input() {
     read -r TIMEZONE
     TIMEZONE=${TIMEZONE:-$DEFAULT_TIMEZONE}
     
-    DEFAULT_NETWORK=$(ip route | grep -E "192\.168\.|10\.|172\." | head -1 | awk '{print $1}' | head -1 || echo "192.168.1.0/24")
+    # Detect LAN network automatically
+    DETECTED_GATEWAY=$(ip route | grep default | awk '{print $3}' | head -1)
+    if [[ -n "$DETECTED_GATEWAY" ]]; then
+        # Extract network from gateway (e.g., 192.168.0.254 -> 192.168.0.0/24)
+        if [[ $DETECTED_GATEWAY =~ ^192\.168\. ]]; then
+            DEFAULT_NETWORK=$(echo "$DETECTED_GATEWAY" | sed 's/\.[0-9]*$/\.0\/24/')
+        elif [[ $DETECTED_GATEWAY =~ ^10\. ]]; then
+            DEFAULT_NETWORK=$(echo "$DETECTED_GATEWAY" | sed 's/\.[0-9]*\.[0-9]*\.[0-9]*$/\.0\.0\.0\/8/')
+        elif [[ $DETECTED_GATEWAY =~ ^172\.(1[6-9]|2[0-9]|3[01])\. ]]; then
+            DEFAULT_NETWORK=$(echo "$DETECTED_GATEWAY" | sed 's/\.[0-9]*\.[0-9]*$/\.0\.0\/12/')
+        else
+            DEFAULT_NETWORK="192.168.1.0/24"
+        fi
+    else
+        DEFAULT_NETWORK="192.168.1.0/24"
+    fi
+    
     echo -n "Enter LAN network [$DEFAULT_NETWORK]: "
     read -r LAN_NETWORK
     LAN_NETWORK=${LAN_NETWORK:-$DEFAULT_NETWORK}
