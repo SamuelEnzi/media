@@ -1,6 +1,6 @@
 # Media Server
 
-Jellyfin media server with automated downloading (Sonarr/Radarr/Lidarr) and VPN support.
+Complete Jellyfin media server with automated downloading (Sonarr/Radarr/Lidarr) and secure VPN torrenting.
 
 ## Preparation
 
@@ -14,24 +14,21 @@ Collect this information:
 - Group ID: `id -g`  
 - Timezone (e.g., America/New_York)
 - Server IP address
-- TorGuard VPN config (optional)
+- Mullvad Wireguard configuration
 
-## VPN Configuration (Optional)
+## VPN Configuration
 
-For secure torrenting with TorGuard:
+For secure torrenting with Mullvad VPN:
 
-1. **Get TorGuard Config:**
-   - Visit [torguard.net/config-generator](https://torguard.net/config-generator)
-   - Select **WireGuard** protocol
-   - Choose your preferred server location
-   - Download the configuration file
+1. **Get Mullvad Config:**
+   - Visit [mullvad.net/account/wireguard-config](https://mullvad.net/account/wireguard-config)
+   - Generate a new key pair if needed
+   - Copy your private key and IP address
 
-2. **Store Config File:**
-   ```bash
-   sudo mkdir -p /data/config/qbittorrent/wireguard
-   sudo cp ~/Downloads/TorGuard.conf /data/config/qbittorrent/wireguard/wg0.conf
-   sudo chown $(id -u):$(id -g) /data/config/qbittorrent/wireguard/wg0.conf
-   ```
+2. **Required Information:**
+   - Wireguard private key
+   - Wireguard addresses (e.g., 10.64.222.21/32)
+   - Preferred countries/cities (optional)
 
 ## Volume Setup
 
@@ -49,19 +46,14 @@ Mount points:
 
 ## Installation
 
-Run interactive setup:
+Run the simplified setup script:
 ```bash
 bash ./setup.sh
 ```
 
 Or deploy manually:
 ```bash
-docker compose --profile basic up -d
-```
-
-With VPN:
-```bash
-docker compose --profile basic --profile vpn up -d
+docker compose up -d
 ```
 
 ## Internet Ports
