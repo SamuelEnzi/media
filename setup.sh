@@ -117,52 +117,25 @@ get_user_input() {
     read -r SERVER_IP
     SERVER_IP=${SERVER_IP:-$DEFAULT_IP}
     
+    # Full installation with VPN support
+    print_info "Installing full media server with VPN support."
+    print_warning "You need to get your Wireguard config from: https://mullvad.net/account/wireguard-config/"
     echo ""
-    echo "Select deployment profile:"
-    echo "1) Basic (Core services only)"
-    echo "2) Basic + VPN (Secure torrenting with Mullvad)"  
-    echo "3) Basic + Optional (Additional services)"
-    echo "4) Full (Basic + VPN + Optional)"
-    echo -n "Enter choice [1-4]: "
-    read -r PROFILE_CHOICE
+    echo -n "Enter Mullvad Wireguard private key: "
+    read -r WIREGUARD_PRIVATE_KEY
+    echo -n "Enter Wireguard addresses (e.g., 10.64.222.21/32): "
+    read -r WIREGUARD_ADDRESSES
     
-    case $PROFILE_CHOICE in
-        1) COMPOSE_PROFILES="basic" ;;
-        2) COMPOSE_PROFILES="basic,vpn" ;;
-        3) COMPOSE_PROFILES="basic,optional" ;;
-        4) COMPOSE_PROFILES="basic,vpn,optional" ;;
-        *) COMPOSE_PROFILES="basic" ;;
-    esac
-    
-    if [[ $COMPOSE_PROFILES == *"vpn"* ]]; then
-        echo ""
-        print_info "VPN profile selected. Mullvad Wireguard configuration required."
-        print_warning "You need to get your Wireguard config from: https://mullvad.net/account/wireguard-config/"
-        echo ""
-        echo -n "Enter Mullvad Wireguard private key: "
-        read -r WIREGUARD_PRIVATE_KEY
-        echo -n "Enter Wireguard addresses (e.g., 10.64.222.21/32): "
-        read -r WIREGUARD_ADDRESSES
-        
-        echo ""
-        echo -n "Enter preferred countries (comma-separated, or leave empty): "
-        read -r SERVER_COUNTRIES
-        echo -n "Enter preferred cities (comma-separated, or leave empty): "
-        read -r SERVER_CITIES
-        
-        VPN_ENABLED="true"
-    else
-        VPN_ENABLED="false"
-        WIREGUARD_PRIVATE_KEY=""
-        WIREGUARD_ADDRESSES=""
-        SERVER_COUNTRIES=""
-        SERVER_CITIES=""
-    fi
+    echo ""
+    echo -n "Enter preferred countries (comma-separated, or leave empty): "
+    read -r SERVER_COUNTRIES
+    echo -n "Enter preferred cities (comma-separated, or leave empty): "
+    read -r SERVER_CITIES
 }
 
 create_directories() {
     print_step "Creating directory structure..."
-    sudo mkdir -p "$DATA_ROOT"/{config/{jellyfin,sonarr,radarr,lidarr,prowlarr,jellyseerr,qbittorrent,qbittorrent-vpn,gluetun,jackett},media/{movies,tv,music},torrents/{movies,tv,music,completed,incomplete}}
+    sudo mkdir -p "$DATA_ROOT"/{config/{jellyfin,sonarr,radarr,lidarr,prowlarr,jellyseerr,qbittorrent,gluetun,jackett,flaresolverr},media/{movies,tv,music},torrents/{movies,tv,music,completed,incomplete}}
     
     # Fix ownership and permissions, handling lost+found gracefully
     print_info "Setting ownership and permissions..."
@@ -192,8 +165,7 @@ DATA_ROOT=$DATA_ROOT
 LAN_NETWORK=$LAN_NETWORK
 JELLYFIN_PUBLISHED_URL=http://$SERVER_IP:8096
 
-# Deployment Profile
-COMPOSE_PROFILES=$COMPOSE_PROFILES
+# Full deployment (no profiles needed)
 
 # Gluetun + Mullvad VPN Configuration
 VPN_TYPE=wireguard
@@ -236,27 +208,25 @@ EOF
 }
 
 setup_vpn_config() {
-    if [[ $VPN_ENABLED == "true" ]]; then
-        print_step "Setting up Mullvad VPN configuration..."
-        
-        VPN_CONFIG_DIR="$DATA_ROOT/config/gluetun"
-        mkdir -p "$VPN_CONFIG_DIR"
-        
-        print_warning "Mullvad Wireguard configuration required!"
-        print_info "To get your Mullvad Wireguard configuration:"
-        echo "  1. Login to https://mullvad.net/account/"
-        echo "  2. Go to 'WireGuard configuration'"
-        echo "  3. Generate a key pair if you haven't already"
-        echo "  4. Copy your private key and address"
-        echo ""
-        print_info "Mullvad supports automatic port forwarding and has excellent privacy features"
-        echo ""
-        
-        if [[ -z "$WIREGUARD_PRIVATE_KEY" ]]; then
-            print_warning "Wireguard private key not provided. You can add it later to the .env file."
-        else
-            print_info "✓ Wireguard configuration will be set via environment variables"
-        fi
+    print_step "Setting up Mullvad VPN configuration..."
+    
+    VPN_CONFIG_DIR="$DATA_ROOT/config/gluetun"
+    mkdir -p "$VPN_CONFIG_DIR"
+    
+    print_warning "Mullvad Wireguard configuration required!"
+    print_info "To get your Mullvad Wireguard configuration:"
+    echo "  1. Login to https://mullvad.net/account/"
+    echo "  2. Go to 'WireGuard configuration'"
+    echo "  3. Generate a key pair if you haven't already"
+    echo "  4. Copy your private key and address"
+    echo ""
+    print_info "Mullvad supports automatic port forwarding and has excellent privacy features"
+    echo ""
+    
+    if [[ -z "$WIREGUARD_PRIVATE_KEY" ]]; then
+        print_warning "Wireguard private key not provided. You can add it later to the .env file."
+    else
+        print_info "✓ Wireguard configuration will be set via environment variables"
     fi
 }
 
@@ -272,11 +242,11 @@ deploy_services() {
         docker compose pull
     fi
     
-    print_info "Starting services with profile: $COMPOSE_PROFILES"
+    print_info "Starting all services..."
     if command -v docker-compose &> /dev/null; then
-        COMPOSE_PROFILES="$COMPOSE_PROFILES" docker-compose up -d
+        docker-compose up -d
     else
-        COMPOSE_PROFILES="$COMPOSE_PROFILES" docker compose up -d
+        docker compose up -d
     fi
     
     print_info "✓ Services deployed successfully"
@@ -296,43 +266,25 @@ show_access_info() {
     echo "│  Lidarr      │  http://$SERVER_IP:8686        │"
     echo "│  Prowlarr    │  http://$SERVER_IP:9696        │"
     echo "│  Jellyseerr  │  http://$SERVER_IP:5055        │"
-    
-    if [[ $COMPOSE_PROFILES == *"vpn"* ]]; then
-        echo "│  qBittorrent │  http://$SERVER_IP:8080 (VPN)  │"
-        echo "│  Gluetun     │  HTTP Proxy: $SERVER_IP:8888   │"
-        echo "│              │  Shadowsocks: $SERVER_IP:8388  │"
-    else
-        echo "│  qBittorrent │  http://$SERVER_IP:8080        │"
-    fi
-    
-    if [[ $COMPOSE_PROFILES == *"optional"* ]]; then
-        echo "│  Jackett     │  http://$SERVER_IP:9117        │"
-        echo "│  FlareSolverr│  http://$SERVER_IP:8191        │"
-    fi
+    echo "│  qBittorrent │  http://$SERVER_IP:8080        │"
+    echo "│  Gluetun     │  HTTP Proxy: $SERVER_IP:8888   │"
+    echo "│              │  Shadowsocks: $SERVER_IP:8388  │"
+    echo "│  Jackett     │  http://$SERVER_IP:9117        │"
+    echo "│  FlareSolverr│  http://$SERVER_IP:8191        │"
     
     echo "└─────────────────────────────────────────────────┘"
     echo ""
     
     print_info "Default qBittorrent login: admin"
     print_warning "qBittorrent generates a temporary password on first start"
-    
-    if [[ $COMPOSE_PROFILES == *"vpn"* ]]; then
-        print_info "To get the qBittorrent (VPN) temporary password, run:"
-        echo "  docker compose logs qbittorrent-vpn"
-        print_warning "Note: qBittorrent-VPN runs through Gluetun for secure torrenting"
-    else
-        print_info "To get the qBittorrent temporary password, run:"
-        echo "  docker compose logs qbittorrent"
-    fi
-    
+    print_info "To get the qBittorrent temporary password, run:"
+    echo "  docker compose logs qbittorrent"
     print_warning "You MUST change this password through the WebUI after first login!"
     
-    if [[ $VPN_ENABLED == "true" ]]; then
-        echo ""
-        print_warning "Gluetun VPN is enabled for secure torrenting with Mullvad."
-        print_info "Verify VPN connectivity: docker compose exec gluetun curl ifconfig.me"
-        print_info "Check Gluetun status: docker compose logs gluetun"
-    fi
+    echo ""
+    print_warning "Gluetun VPN is enabled for secure torrenting with Mullvad."
+    print_info "Verify VPN connectivity: docker compose exec gluetun curl ifconfig.me"
+    print_info "Check Gluetun status: docker compose logs gluetun"
     
     echo ""
     print_info "Next steps:"
@@ -360,16 +312,13 @@ show_management_commands() {
     echo ""
     echo -e "${YELLOW}qBittorrent Specific:${NC}"
     echo "  Get temp password: docker compose logs qbittorrent"
-    if [[ $COMPOSE_PROFILES == *"vpn"* ]]; then
-        echo "  Get VPN password:  docker compose logs qbittorrent-vpn"
-        echo ""
-        echo -e "${YELLOW}Gluetun VPN Commands:${NC}"
-        echo "  Check VPN status:  docker compose logs gluetun"
-        echo "  Test VPN IP:       docker compose exec gluetun curl ifconfig.me"
-        echo "  Check connection:  docker compose exec gluetun curl -m 5 ipinfo.io"
-        echo "  HTTP Proxy:        Use $SERVER_IP:8888 for HTTP proxy"
-        echo "  Shadowsocks:       Use $SERVER_IP:8388 for Shadowsocks proxy"
-    fi
+    echo ""
+    echo -e "${YELLOW}Gluetun VPN Commands:${NC}"
+    echo "  Check VPN status:  docker compose logs gluetun"
+    echo "  Test VPN IP:       docker compose exec gluetun curl ifconfig.me"
+    echo "  Check connection:  docker compose exec gluetun curl -m 5 ipinfo.io"
+    echo "  HTTP Proxy:        Use $SERVER_IP:8888 for HTTP proxy"
+    echo "  Shadowsocks:       Use $SERVER_IP:8388 for Shadowsocks proxy"
     echo ""
 }
 

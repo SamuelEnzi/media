@@ -1,16 +1,11 @@
 # =============================================================================
 # JELLYFIN MEDIA SERVER STACK
-# Configurable Docker Compose for complete media automation
+# Complete Docker Compose for automated media server
 # 
-# Deployment Profiles:
-# - basic: Core media stack (Jellyfin + *arr apps + qBittorrent)
-# - vpn: Adds VPN-enabled qBittorrent for secure torrenting  
-# - optional: Additional services (FlareSolverr, Jackett, Watchtower)
-# - dev: Development tools and debugging
+# Includes all services: Jellyfin, *arr apps, qBittorrent with VPN, and extras
 #
 # Usage:
-# docker compose --profile basic up -d
-# docker compose --profile basic --profile vpn up -d
+# docker compose up -d
 # =============================================================================
 
 services:
@@ -55,12 +50,11 @@ services:
       retries: 3
 
   # ==========================================================================
-  # QBITTORRENT - STANDARD (Basic Profile)
+  # QBITTORRENT - TORRENT CLIENT
   # ==========================================================================
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
-    profiles: [basic]
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
@@ -71,8 +65,6 @@ services:
       - ${DATA_ROOT}/torrents:/data/torrents
     ports:
       - "${QBITTORRENT_PORT:-8080}:8080"
-      - "${QBITTORRENT_TORRENT_PORT:-6881}:6881"
-      - "${QBITTORRENT_TORRENT_PORT:-6881}:6881/udp"
     restart: ${RESTART_POLICY:-unless-stopped}
     networks:
       - media-network
@@ -83,12 +75,11 @@ services:
         max-file: "${LOG_MAX_FILE:-3}"
 
   # ==========================================================================
-  # GLUETUN VPN CLIENT (VPN Profile) 
+  # GLUETUN VPN CLIENT
   # ==========================================================================
   gluetun:
     image: qmcgaw/gluetun:latest
     container_name: gluetun
-    profiles: [vpn]
     cap_add:
       - NET_ADMIN
     devices:
@@ -117,9 +108,7 @@ services:
       - "8388:8388/udp"                     # Shadowsocks UDP  
     restart: ${RESTART_POLICY:-unless-stopped}
     networks:
-      media-network:
-        aliases:
-          - qbittorrent-vpn  # Allow other services to reach qBittorrent via this name
+      - media-network
     logging:
       driver: ${LOG_DRIVER:-json-file}
       options:
@@ -131,31 +120,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-
-  # ==========================================================================
-  # QBITTORRENT - VPN ENABLED (VPN Profile) 
-  # ==========================================================================
-  qbittorrent-vpn:
-    image: lscr.io/linuxserver/qbittorrent:latest
-    container_name: qbittorrent-vpn
-    profiles: [vpn]
-    network_mode: "service:gluetun"
-    environment:
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}  
-      - TZ=${TZ:-America/New_York}
-      - WEBUI_PORT=${QBITTORRENT_PORT:-8080}
-    volumes:
-      - ${DATA_ROOT}/config/qbittorrent-vpn:/config
-      - ${DATA_ROOT}/torrents:/data/torrents
-    depends_on:
-      - gluetun
-    restart: ${RESTART_POLICY:-unless-stopped}
-    logging:
-      driver: ${LOG_DRIVER:-json-file}
-      options:
-        max-size: ${LOG_MAX_SIZE:-10m}
-        max-file: "${LOG_MAX_FILE:-3}"
 
   # ==========================================================================
   # SONARR - TV SHOW AUTOMATION
@@ -293,14 +257,13 @@ services:
       start_period: 20s
 
   # ==========================================================================
-  # OPTIONAL SERVICES
+  # ADDITIONAL SERVICES
   # ==========================================================================
 
   # FlareSolverr - CloudFlare bypass for indexers
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:latest
     container_name: flaresolverr
-    profiles: [optional]
     environment:
       - LOG_LEVEL=info
       - LOG_HTML=false
@@ -321,7 +284,6 @@ services:
   jackett:
     image: lscr.io/linuxserver/jackett:latest
     container_name: jackett
-    profiles: [optional]
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
@@ -345,7 +307,6 @@ services:
   watchtower:
     image: containrrr/watchtower:latest
     container_name: watchtower
-    profiles: [optional]
     environment:
       - TZ=${TZ:-America/New_York}
       - WATCHTOWER_CLEANUP=true
@@ -364,14 +325,13 @@ services:
         max-file: "${LOG_MAX_FILE:-3}"
 
   # ==========================================================================
-  # DEVELOPMENT/DEBUG SERVICES  
+  # MANAGEMENT & MONITORING SERVICES  
   # ==========================================================================
 
   # Portainer - Docker management UI
   portainer:
     image: portainer/portainer-ce:latest
     container_name: portainer
-    profiles: [dev]
     environment:
       - TZ=${TZ:-America/New_York}
     volumes:
@@ -387,7 +347,6 @@ services:
   netdata:
     image: netdata/netdata:latest
     container_name: netdata
-    profiles: [dev]
     environment:
       - TZ=${TZ:-America/New_York}
     volumes:
