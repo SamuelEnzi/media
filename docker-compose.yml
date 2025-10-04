@@ -63,6 +63,7 @@ services:
     volumes:
       - ${DATA_ROOT}/config/qbittorrent:/config
       - ${DATA_ROOT}/torrents:/data/torrents
+      - ${DATA_ROOT}/downloads:/downloads
     ports:
       - "${QBITTORRENT_PORT:-8080}:8080"
     restart: ${RESTART_POLICY:-unless-stopped}
