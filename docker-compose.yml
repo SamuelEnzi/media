@@ -25,6 +25,7 @@ services:
       - ${DATA_ROOT}/media/tv:/data/tvshows
       - ${DATA_ROOT}/media/movies:/data/movies
       - ${DATA_ROOT}/media/music:/data/music
+      - ${DATA_ROOT}/torrents:/data/torrents
       # Optional: hardware transcoding cache on faster storage
       # - /tmp/jellyfin-transcode:/transcode
     ports:
