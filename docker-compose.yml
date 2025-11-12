@@ -311,27 +311,27 @@ services:
         max-file: "${LOG_MAX_FILE:-3}"
 
   # Jackett - Alternative indexer manager  
-  jackett:
-    image: lscr.io/linuxserver/jackett:latest
-    container_name: jackett
-    environment:
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}
-      - TZ=${TZ:-America/New_York}
-      - AUTO_UPDATE=true
-    volumes:
-      - ${DATA_ROOT}/config/jackett:/config
-      - ${DATA_ROOT}/torrents:/downloads
-    ports:
-      - "${JACKETT_PORT:-9117}:9117"
-    restart: ${RESTART_POLICY:-unless-stopped}
-    networks:
-      - media-network
-    logging:
-      driver: ${LOG_DRIVER:-json-file}
-      options:
-        max-size: ${LOG_MAX_SIZE:-10m}
-        max-file: "${LOG_MAX_FILE:-3}"
+  # jackett:
+  #   image: lscr.io/linuxserver/jackett:latest
+  #   container_name: jackett
+  #   environment:
+  #     - PUID=${PUID:-1000}
+  #     - PGID=${PGID:-1000}
+  #     - TZ=${TZ:-America/New_York}
+  #     - AUTO_UPDATE=true
+  #   volumes:
+  #     - ${DATA_ROOT}/config/jackett:/config
+  #     - ${DATA_ROOT}/torrents:/downloads
+  #   ports:
+  #     - "${JACKETT_PORT:-9117}:9117"
+  #   restart: ${RESTART_POLICY:-unless-stopped}
+  #   networks:
+  #     - media-network
+  #   logging:
+  #     driver: ${LOG_DRIVER:-json-file}
+  #     options:
+  #       max-size: ${LOG_MAX_SIZE:-10m}
+  #       max-file: "${LOG_MAX_FILE:-3}"
 
   # Watchtower - Automatic container updates
   watchtower:
