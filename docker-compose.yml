@@ -33,9 +33,14 @@ services:
       - "${JELLYFIN_HTTPS_PORT:-8920}:8920"
       - "7359:7359/udp"  # Service discovery
       - "1900:1900/udp"  # DLNA
-    devices:
-      # Intel Quick Sync Video
-      - /dev/dri:/dev/dri
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     restart: ${RESTART_POLICY:-unless-stopped}
     networks:
       - media-network
@@ -56,6 +61,7 @@ services:
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
+    network_mode: service:gluetun
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
@@ -63,10 +69,31 @@ services:
       - WEBUI_PORT=${QBITTORRENT_PORT:-8080}
     volumes:
       - ${DATA_ROOT}/config/qbittorrent:/config
-      - ${DATA_ROOT}/torrents:/data/torrents
-      - ${DATA_ROOT}/downloads:/downloads
+      - ${DATA_ROOT}/downloads/qbittorrent:/downloads/qbittorrent
+    # ports:
+    #   - "${QBITTORRENT_PORT:-8080}:8080"
+    restart: ${RESTART_POLICY:-unless-stopped}
+    logging:
+      driver: ${LOG_DRIVER:-json-file}
+      options:
+        max-size: ${LOG_MAX_SIZE:-10m}
+        max-file: "${LOG_MAX_FILE:-3}"
+
+  # ==========================================================================
+  # SABNZBD - USENET CLIENT
+  # ==========================================================================
+  sabnzbd:
+    image: lscr.io/linuxserver/sabnzbd:latest
+    container_name: sabnzbd
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/New_York}
+    volumes:
+      - ${DATA_ROOT}/config/sabnzbd:/config
+      - ${DATA_ROOT}/downloads/sabnzbd:/downloads/sabnzbd
     ports:
-      - "${QBITTORRENT_PORT:-8080}:8080"
+      - "${SABNZBD_PORT:-6969}:8080"
     restart: ${RESTART_POLICY:-unless-stopped}
     networks:
       - media-network
@@ -108,6 +135,7 @@ services:
       - "8888:8888/tcp"                     # HTTP proxy
       - "8388:8388/tcp"                     # Shadowsocks
       - "8388:8388/udp"                     # Shadowsocks UDP  
+      - "${QBITTORRENT_PORT:-8080}:8080"    # qBittorrent
     restart: ${RESTART_POLICY:-unless-stopped}
     networks:
       - media-network
@@ -136,7 +164,7 @@ services:
     volumes:
       - ${DATA_ROOT}/config/sonarr:/config
       - ${DATA_ROOT}/media/tv:/tv
-      - ${DATA_ROOT}/torrents:/data/torrents
+      - ${DATA_ROOT}/downloads:/downloads
     ports:
       - "${SONARR_PORT:-8989}:8989"
     restart: ${RESTART_POLICY:-unless-stopped}
@@ -163,7 +191,7 @@ services:
     volumes:
       - ${DATA_ROOT}/config/radarr:/config
       - ${DATA_ROOT}/media/movies:/movies
-      - ${DATA_ROOT}/torrents:/data/torrents
+      - ${DATA_ROOT}/downloads:/downloads
     ports:
       - "${RADARR_PORT:-7878}:7878"
     restart: ${RESTART_POLICY:-unless-stopped}
@@ -190,7 +218,7 @@ services:
     volumes:
       - ${DATA_ROOT}/config/lidarr:/config
       - ${DATA_ROOT}/media/music:/music
-      - ${DATA_ROOT}/torrents:/data/torrents
+      - ${DATA_ROOT}/downloads:/downloads
     ports:
       - "${LIDARR_PORT:-8686}:8686"
     restart: ${RESTART_POLICY:-unless-stopped}
@@ -373,6 +401,7 @@ networks:
   media-network:
     name: ${NETWORK_NAME:-media-network}
     driver: bridge
+    enable_ipv6: false
     ipam:
       config:
         - subnet: 172.20.0.0/16
