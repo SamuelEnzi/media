@@ -58,26 +58,26 @@ services:
   # ==========================================================================
   # QBITTORRENT - TORRENT CLIENT
   # ==========================================================================
-  qbittorrent:
-    image: lscr.io/linuxserver/qbittorrent:latest
-    container_name: qbittorrent
-    network_mode: service:gluetun
-    environment:
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}
-      - TZ=${TZ:-America/New_York}
-      - WEBUI_PORT=${QBITTORRENT_PORT:-8080}
-    volumes:
-      - ${DATA_ROOT}/config/qbittorrent:/config
-      - ${DATA_ROOT}/downloads/qbittorrent:/downloads/qbittorrent
-    # ports:
-    #   - "${QBITTORRENT_PORT:-8080}:8080"
-    restart: ${RESTART_POLICY:-unless-stopped}
-    logging:
-      driver: ${LOG_DRIVER:-json-file}
-      options:
-        max-size: ${LOG_MAX_SIZE:-10m}
-        max-file: "${LOG_MAX_FILE:-3}"
+  # qbittorrent:
+  #   image: lscr.io/linuxserver/qbittorrent:latest
+  #   container_name: qbittorrent
+  #   network_mode: service:gluetun
+  #   environment:
+  #     - PUID=${PUID:-1000}
+  #     - PGID=${PGID:-1000}
+  #     - TZ=${TZ:-America/New_York}
+  #     - WEBUI_PORT=${QBITTORRENT_PORT:-8080}
+  #   volumes:
+  #     - ${DATA_ROOT}/config/qbittorrent:/config
+  #     - ${DATA_ROOT}/downloads/qbittorrent:/downloads/qbittorrent
+  #   # ports:
+  #   #   - "${QBITTORRENT_PORT:-8080}:8080"
+  #   restart: ${RESTART_POLICY:-unless-stopped}
+  #   logging:
+  #     driver: ${LOG_DRIVER:-json-file}
+  #     options:
+  #       max-size: ${LOG_MAX_SIZE:-10m}
+  #       max-file: "${LOG_MAX_FILE:-3}"
 
   # ==========================================================================
   # SABNZBD - USENET CLIENT
@@ -106,50 +106,50 @@ services:
   # ==========================================================================
   # GLUETUN VPN CLIENT
   # ==========================================================================
-  gluetun:
-    image: qmcgaw/gluetun:latest
-    container_name: gluetun
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    environment:
-      - VPN_SERVICE_PROVIDER=mullvad
-      - VPN_TYPE=${VPN_TYPE:-wireguard}
-      # Wireguard settings for Mullvad
-      - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY:-}
-      - WIREGUARD_ADDRESSES=${WIREGUARD_ADDRESSES:-}
-      # Server filtering (optional)
-      - SERVER_COUNTRIES=${SERVER_COUNTRIES:-}
-      - SERVER_CITIES=${SERVER_CITIES:-}
-      # Network settings
-      - FIREWALL_OUTBOUND_SUBNETS=${LAN_NETWORK:-192.168.1.0/24}
-      - DOT=${DOT:-on}
-      - DOT_PROVIDERS=${DOT_PROVIDERS:-cloudflare}
-      - TZ=${TZ:-America/New_York}
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}
-    volumes:
-      - ${DATA_ROOT}/config/gluetun:/gluetun
-    ports:
-      - "8888:8888/tcp"                     # HTTP proxy
-      - "8388:8388/tcp"                     # Shadowsocks
-      - "8388:8388/udp"                     # Shadowsocks UDP  
-      - "${QBITTORRENT_PORT:-8080}:8080"    # qBittorrent
-    restart: ${RESTART_POLICY:-unless-stopped}
-    networks:
-      - media-network
-    logging:
-      driver: ${LOG_DRIVER:-json-file}
-      options:
-        max-size: ${LOG_MAX_SIZE:-10m}
-        max-file: "${LOG_MAX_FILE:-3}"
-    healthcheck:
-      test: ["CMD", "/gluetun-entrypoint", "healthcheck"]
-      interval: 60s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+  # gluetun:
+  #   image: qmcgaw/gluetun:latest
+  #   container_name: gluetun
+  #   cap_add:
+  #     - NET_ADMIN
+  #   devices:
+  #     - /dev/net/tun:/dev/net/tun
+  #   environment:
+  #     - VPN_SERVICE_PROVIDER=mullvad
+  #     - VPN_TYPE=${VPN_TYPE:-wireguard}
+  #     # Wireguard settings for Mullvad
+  #     - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY:-}
+  #     - WIREGUARD_ADDRESSES=${WIREGUARD_ADDRESSES:-}
+  #     # Server filtering (optional)
+  #     - SERVER_COUNTRIES=${SERVER_COUNTRIES:-}
+  #     - SERVER_CITIES=${SERVER_CITIES:-}
+  #     # Network settings
+  #     - FIREWALL_OUTBOUND_SUBNETS=${LAN_NETWORK:-192.168.1.0/24}
+  #     - DOT=${DOT:-on}
+  #     - DOT_PROVIDERS=${DOT_PROVIDERS:-cloudflare}
+  #     - TZ=${TZ:-America/New_York}
+  #     - PUID=${PUID:-1000}
+  #     - PGID=${PGID:-1000}
+  #   volumes:
+  #     - ${DATA_ROOT}/config/gluetun:/gluetun
+  #   ports:
+  #     - "8888:8888/tcp"                     # HTTP proxy
+  #     - "8388:8388/tcp"                     # Shadowsocks
+  #     - "8388:8388/udp"                     # Shadowsocks UDP  
+  #     - "${QBITTORRENT_PORT:-8080}:8080"    # qBittorrent
+  #   restart: ${RESTART_POLICY:-unless-stopped}
+  #   networks:
+  #     - media-network
+  #   logging:
+  #     driver: ${LOG_DRIVER:-json-file}
+  #     options:
+  #       max-size: ${LOG_MAX_SIZE:-10m}
+  #       max-file: "${LOG_MAX_FILE:-3}"
+  #   healthcheck:
+  #     test: ["CMD", "/gluetun-entrypoint", "healthcheck"]
+  #     interval: 60s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 30s
 
   # ==========================================================================
   # SONARR - TV SHOW AUTOMATION
